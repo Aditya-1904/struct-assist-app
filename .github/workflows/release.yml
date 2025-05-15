@@ -3,7 +3,7 @@ name: Build & Publish Release Asset
 on:
   push:
     tags:
-      - 'v*.*.*'           # Triggers on any tag like v1.2.3
+      - 'v*.*.*'   # Triggers on any tag like v1.2.3
 
 jobs:
   build_and_package:
@@ -20,20 +20,27 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      # 3️⃣ Restore & publish your app into a clean folder
+      # 3️⃣ Restore & publish (into published/)
       - name: Restore & Publish
         run: |
           dotnet restore
-          dotnet publish src/$(basename $GITHUB_REPOSITORY).csproj \
-            -c Release -o published
+          dotnet publish src/$(basename $GITHUB_REPOSITORY).csproj -c Release -o published
 
-      # 4️⃣ Zip only the published binaries
-      - name: Create ZIP of published output
+      # 4️⃣ Debug: list contents of published/
+      - name: List published folder (debug)
+        shell: pwsh
         run: |
-          mkdir release
-          powershell -Command "Compress-Archive -Path published/* -DestinationPath release/${GITHUB_REF_NAME}.zip"
+          Write-Host "Contents of published/:"
+          Get-ChildItem -Recurse published
 
-      # 5️⃣ Create (or update) the GitHub Release for this tag
+      # 5️⃣ Zip only the published/ folder
+      - name: Create ZIP of published folder
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          Compress-Archive -Path .\published\* -DestinationPath .\release\${{ github.ref_name }}.zip -Force
+
+      # 6️⃣ Create or update the GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -41,7 +48,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 6️⃣ Upload the ZIP as the Release asset
+      # 7️⃣ Upload the ZIP asset to that Release
       - name: Upload ZIP asset
         uses: softprops/action-gh-release@v1
         with:
