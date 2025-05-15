@@ -1,46 +1,34 @@
-name: Build & Publish Release Asset
+name: Package & Publish Release Asset
 
 on:
   push:
     tags:
-      - 'v*.*.*'   # Triggers on any tag like v1.2.3
+      - 'v*.*.*'   # e.g. v1.0.0
 
 jobs:
-  build_and_package:
+  package:
     runs-on: windows-latest
 
     steps:
-      # 1️⃣ Check out your source code
+      # 1️⃣ Check out your code (including published/)
       - name: Checkout source
         uses: actions/checkout@v3
 
-      # 2️⃣ Install the .NET SDK
-      - name: Setup .NET 8.0
-        uses: actions/setup-dotnet@v3
-        with:
-          dotnet-version: '8.0.x'
-
-      # 3️⃣ Restore & publish (into published/)
-      - name: Restore & Publish
-        run: |
-          dotnet restore
-          dotnet publish src/$(basename $GITHUB_REPOSITORY).csproj -c Release -o published
-
-      # 4️⃣ Debug: list contents of published/
+      # 2️⃣ Debug: list contents of published/
       - name: List published folder (debug)
         shell: pwsh
         run: |
-          Write-Host "Contents of published/:"
-          Get-ChildItem -Recurse published
+          Write-Host "=== Contents of published/ ==="
+          Get-ChildItem -Recurse published || Write-Host "No published folder found!"
 
-      # 5️⃣ Zip only the published/ folder
+      # 3️⃣ Zip your published/ folder
       - name: Create ZIP of published folder
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path release -Force | Out-Null
           Compress-Archive -Path .\published\* -DestinationPath .\release\${{ github.ref_name }}.zip -Force
 
-      # 6️⃣ Create or update the GitHub Release
+      # 4️⃣ Create (or update) the GitHub Release for this tag
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -48,7 +36,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 7️⃣ Upload the ZIP asset to that Release
+      # 5️⃣ Upload that ZIP as the asset
       - name: Upload ZIP asset
         uses: softprops/action-gh-release@v1
         with:
