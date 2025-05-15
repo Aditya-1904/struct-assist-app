@@ -1,0 +1,49 @@
+name: Build & Publish Release Asset
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'           # Triggers on any tag like v1.2.3
+
+jobs:
+  build_and_package:
+    runs-on: windows-latest
+
+    steps:
+      # 1️⃣ Check out your source code
+      - name: Checkout source
+        uses: actions/checkout@v3
+
+      # 2️⃣ Install the .NET SDK
+      - name: Setup .NET 8.0
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
+
+      # 3️⃣ Restore & publish your app into a clean folder
+      - name: Restore & Publish
+        run: |
+          dotnet restore
+          dotnet publish src/$(basename $GITHUB_REPOSITORY).csproj \
+            -c Release -o published
+
+      # 4️⃣ Zip only the published binaries
+      - name: Create ZIP of published output
+        run: |
+          mkdir release
+          powershell -Command "Compress-Archive -Path published/* -DestinationPath release/${GITHUB_REF_NAME}.zip"
+
+      # 5️⃣ Create (or update) the GitHub Release for this tag
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 6️⃣ Upload the ZIP as the Release asset
+      - name: Upload ZIP asset
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: release/${{ github.ref_name }}.zip
